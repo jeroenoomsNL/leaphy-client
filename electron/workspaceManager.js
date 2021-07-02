@@ -53,12 +53,19 @@ class WorkspaceManager {
 
     restore = async (event, robotType) => {
         this.logger.verbose("Restore Workspace command received");
-        const openDialogOptions = {
-            filters: [
-                { name: `${robotType.id} files`, extensions: [robotType.id] }
-            ]
-        }
-        const response = await this.dialog.showOpenDialog(openDialogOptions);
+
+        const options = {
+            types: [
+                {
+                    description: `${robotType.id} files`,
+                    accept: {
+                        'text/xml': [`.${robotType.id}`],
+                    },
+                },
+            ],
+        };
+        const response = await window.showOpenFilePicker(options);
+
         if (response.canceled) {
             const message = { event: "WORKSPACE_RESTORE_CANCELLED", message: "WORKSPACE_RESTORE_CANCELLED" };
             event.sender.send('backend-message', message);
