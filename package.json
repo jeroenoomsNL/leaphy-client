@@ -38,6 +38,7 @@
     "@ngx-translate/http-loader": "^6.0.0",
     "ace-builds": "^1.4.12",
     "angular": "^1.8.1",
+    "avrgirl-arduino": "^5.0.1",
     "blockly": "github:leaphy-robotics/leaphy-blockly#101986a085bf5a037e1928637ae9c4417efd5a4a",
     "bootstrap": "^4.5.3",
     "electron-first-run": "^3.0.0",
