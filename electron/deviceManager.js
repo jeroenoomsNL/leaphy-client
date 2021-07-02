@@ -1,9 +1,12 @@
 const SerialPort = require("serialport");
+const AvrGirl = require("avrgirl-arduino");
 
 class DeviceManager {
-    constructor(arduinoCli, logger) {
-        this.arduinoCli = arduinoCli;
+    constructor(logger) {
         this.activeSerial = null;
+        this.avrGirl = new AvrGirl({
+             board: 'uno'
+        });
         this.logger = logger;
     }
 
@@ -17,9 +20,10 @@ class DeviceManager {
         });
     }
 
-    updateDevice = async (event, payload) => {
-
+    updateDevice = async (event, originalPayload) => {
         this.logger.verbose('Update Device command received');
+        
+        const payload = {...originalPayload, address: originalPayload.path};
 
         if(this.activeSerial?.isOpen){
             this.activeSerial.close();
@@ -27,38 +31,36 @@ class DeviceManager {
         
         const updatingMessage = { event: "UPDATE_STARTED", message: "UPDATE_STARTED", displayTimeout: 0 };
         event.sender.send('backend-message', updatingMessage);
-        const uploadParams = ["upload", "-b", payload.fqbn, "-p", payload.address, "-i", `${payload.sketchPath}.${payload.ext}`];
 
-        try {
-            await this.arduinoCli.runAsync(uploadParams);
-        } catch (error) {
-            this.logger.error("Upload failed", error);
-            var unsuccesfulUploadMessage = { event: "UPDATE_FAILED", message: "UPDATE_FAILED", payload: payload, displayTimeout: 3000 };
-            event.sender.send('backend-message', unsuccesfulUploadMessage);
-            return;
-        }
+        this.avrGirl.flash(`${payload.sketchPath}.${payload.ext}`, (error) => {
+            if (error) {
+                this.logger.error("Upload failed", error);
+                var unsuccesfulUploadMessage = { event: "UPDATE_FAILED", message: "UPDATE_FAILED", payload: payload, displayTimeout: 3000 };
+                event.sender.send('backend-message', unsuccesfulUploadMessage);
+                return;
+            }
+        })
 
         await this.subscribeToSerialData(event, payload);
-
+        
         const updateCompleteMessage = { event: "UPDATE_COMPLETE", message: "UPDATE_COMPLETE", payload: payload, displayTimeout: 3000 };
         event.sender.send('backend-message', updateCompleteMessage);
     }
 
     getDevices = async (event) => {
         this.logger.verbose('Get Serial Devices command received');
-        const updateIndexParams = ["core", "update-index"];
-        this.logger.info(await this.arduinoCli.runAsync(updateIndexParams));
 
-        const listBoardsParams = ["board", "list", "--format", "json"];
-        const connectedDevices = JSON.parse(await this.arduinoCli.runAsync(listBoardsParams));
-        const eligibleBoards = connectedDevices.filter(device => device.protocol_label == "Serial Port (USB)");
-        let message;
-        if (!eligibleBoards.length) {
-            message = { event: "NO_DEVICES_FOUND", message: "NO_DEVICES_FOUND", displayTimeout: -1 };
-        } else {
-            message = { event: "DEVICES_FOUND", message: "DEVICES_FOUND", payload: eligibleBoards, displayTimeout: 0 };
-        }
-        event.sender.send('backend-message', message);
+        this.avrGirl.listPorts((_err, ports) => {
+            const eligibleBoards = ports.filter(device => device.path.indexOf("usbserial") != -1);
+            
+            let message;
+            if (!eligibleBoards.length) {
+                message = { event: "NO_DEVICES_FOUND", message: "NO_DEVICES_FOUND", displayTimeout: -1 };
+            } else {
+                message = { event: "DEVICES_FOUND", message: "DEVICES_FOUND", payload: eligibleBoards, displayTimeout: 0 };
+            }
+            event.sender.send('backend-message', message);
+        });
     }
 }
 

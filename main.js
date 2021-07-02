@@ -47,7 +47,7 @@ const compiler = new Compiler(app, arduinoCli, path, fs, logger);
 ipcMain.on('compile', compiler.compile);
 
 const DeviceManager = require('./electron/deviceManager.js');
-const deviceManager = new DeviceManager(arduinoCli, logger);
+const deviceManager = new DeviceManager(logger);
 ipcMain
     .on('update-device', deviceManager.updateDevice)
     .on('get-serial-devices', deviceManager.getDevices);
